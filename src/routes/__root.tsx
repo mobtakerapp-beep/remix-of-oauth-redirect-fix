@@ -128,7 +128,43 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Universal OAuth completion: finish sign-in no matter which path the
+  // provider returns to (works on any server / any domain).
   useEffect(() => {
+    const url = new URL(window.location.href);
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    const code = url.searchParams.get("code");
+    if (!accessToken && !code) return;
+    if (url.pathname === "/auth/callback") return; // dedicated page handles it
+
+    let cancelled = false;
+    void (async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      try {
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+        } else if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
+        }
+        if (cancelled) return;
+        window.history.replaceState({}, "", "/");
+        window.location.replace("/");
+      } catch {
+        /* ignore — user can retry sign-in */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+
     if (!("serviceWorker" in navigator)) return;
     const host = window.location.hostname;
     const blocked =
