@@ -91,6 +91,22 @@ function AuthPage() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
+      // Outside the Lovable preview iframe (e.g. Cloudflare Workers, custom
+      // domains) the /~oauth broker doesn't exist -> use Supabase OAuth directly.
+      const inLovablePreview =
+        window.self !== window.top ||
+        window.location.hostname.endsWith("lovable.app") ||
+        window.location.hostname.endsWith("lovableproject.com");
+
+      if (!inLovablePreview) {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${window.location.origin}/auth/callback` },
+        });
+        if (error) throw error;
+        return; // full-page redirect to Google
+      }
+
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });
