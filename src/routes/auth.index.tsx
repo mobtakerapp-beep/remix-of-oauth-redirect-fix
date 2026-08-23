@@ -99,11 +99,13 @@ function AuthPage() {
         window.location.hostname.endsWith("lovableproject.com");
 
       if (!inLovablePreview) {
+        // Always come back to the production app, not a preview URL.
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
-          options: { redirectTo: `${window.location.origin}/auth/callback` },
+          options: { redirectTo: `${PROD_ORIGIN}/auth/callback` },
         });
         if (error) throw error;
+
         return; // full-page redirect to Google
       }
 
